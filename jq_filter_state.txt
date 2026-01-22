@@ -1,0 +1,44 @@
+{
+node:[.nodes[]  | {
+        id: .id,
+        node: .node,
+        name : .name,
+        cpu : .cpu,
+        mem : .mem,
+        maxmem : .maxmem ,
+        disk: .disk,
+        status: .status
+        } ] ,
+vm:[.vms[]  | {
+        id: .id,
+        name : .name,
+        cpu : .cpu,
+        mem : .mem,
+        maxmem : .maxmem ,
+        disk: .disk,
+        status: .status
+        }],
+lxc:[.containers[]  | {
+        id: .id,
+        name : .name,
+        cpu : .cpu,
+        mem : .mem,
+        maxmem : .maxmem ,
+        disks: .disks,
+        status: .status
+        }],
+host:[.hosts[]  | {
+        id: .id,
+        name : .hostname,
+        cpu : .cpuUsage,
+        memory : .memory,
+        status: .status
+        }],
+storage:[.storage[]  | {
+        id: .id,
+        name : .name,
+        status: .status,
+        total: .total,
+        used: .used
+        }]
+}
