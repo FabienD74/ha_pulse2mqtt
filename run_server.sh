@@ -27,21 +27,52 @@ call_api () {
         echo "${L_RESPONSE}"
 }
 
+publish_mqtt_ha_config_binary_sensor(){
+	L_HA_SUBTOPIC="binary_sensor"
+        L_SUBTOPIC="$1"
+	L_FIELD="$2"
+	L_ACCESS_TEMPLATE="$3"
+	L_NAME="$4"
+	L_DEVICE_JSON="$5"
+
+	L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
+	L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/${L_SUBTOPIC}_${L_FIELD}/config"
+	
+	L_EXTRA_JSON="\"payload_on\":true, \"payload_off\":false"
+
+	L_JSON="{\"state_topic\":\"${L_MQTT_TOPIC}\", \"value_template\":\"${L_ACCESS_TEMPLATE}\", \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_EXTRA_JSON}, ${L_DEVICE_JSON}  } "
+        L_RESPONSE="$(mosquitto_pub  -h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
+	#echo " DEBUG: ${L_JSON}" >&2
+}
+
 
 publish_mqtt_ha_config_sensor(){
-        L_HA_SUBTOPIC="sensor"
+	L_HA_SUBTOPIC="sensor"
         L_SUBTOPIC="$1"
-        L_FIELD="$2"
-        L_ACCESS_TEMPLATE="$3"
-        L_NAME="$4"
-        L_DEVICE_JSON="$5"
+	L_FIELD="$2"
+	L_ACCESS_TEMPLATE="$3"
+	L_NAME="$4"
+	L_DEVICE_JSON="$5"
 
-        L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
-        L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/${L_SUBTOPIC}_${L_FIELD}/config"
+	L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
+	L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/${L_SUBTOPIC}_${L_FIELD}/config"
 
-        L_JSON="{\"state_topic\":\"${L_MQTT_TOPIC}\", \"value_template\":\"${L_ACCESS_TEMPLATE}\", \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_DEVICE_JSON}  } "
+	L_JSON="{\"state_topic\":\"${L_MQTT_TOPIC}\", \"value_template\":\"${L_ACCESS_TEMPLATE}\", \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_DEVICE_JSON}  } "
         L_RESPONSE="$(mosquitto_pub  -h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
-        #echo " DEBUG: ${L_JSON}" >&2
+	#echo " DEBUG: ${L_JSON}" >&2
+}
+
+
+publish_mqtt_ha_config_gen(){
+
+   case "$1" in
+      sensor) 
+		publish_mqtt_ha_config_sensor "$2" "$3" "$4" "$5" "$6"
+		;;
+      binary_sensor) 
+		publish_mqtt_ha_config_binary_sensor "$2" "$3" "$4" "$5" "$6"
+		;;
+   esac
 }
 
 
@@ -49,33 +80,44 @@ publish_mqtt_pulse_topic(){
         L_SUBTOPIC="$1"
         L_JSON="$2"
 
-        L_FULL_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
+	L_FULL_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
         L_RESPONSE="$(mosquitto_pub  -h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
 }
 
 
 publish_version_api() {
-        L_FORCE_UPDATE="$1"
-        RESPONSE_TMP="$( call_api ${VAR_API_VERSION})"
-        #echo " CONTENT OF RESPONSE: ${RESPONSE}"
-        RESPONSE="$( echo "${RESPONSE_TMP}" | jq -f jq_filter_version.txt)"
+	L_FORCE_UPDATE="$1"
+	RESPONSE_TMP="$( call_api ${VAR_API_VERSION})"
+	#echo " CONTENT OF RESPONSE: ${RESPONSE}"
+	RESPONSE="$( echo "${RESPONSE_TMP}" | jq --tab -f jq_filter_version.txt)"
 
-        if [ "${L_FORCE_UPDATE}" == "yes" ] ; 
-        then
-                echo "${RESPONSE}" | jq --tab >&2
-                L_DEVICE_JSON='"device":{ "identifiers":[ "pulse_top" ], "name":"Pulse Top" } '
-                publish_mqtt_ha_config_sensor   "pulse_version" "version" "{{value_json.version}}" "Current Version" "${L_DEVICE_JSON}" 
-                publish_mqtt_ha_config_sensor   "pulse_version" "latestversion" "{{value_json.latestVersion}}" "Latest Version" "${L_DEVICE_JSON}" 
-                publish_mqtt_ha_config_sensor   "pulse_version" "deploymenttype" "{{value_json.deploymentType}}" "Deployment Type" "${L_DEVICE_JSON}" 
-                publish_mqtt_ha_config_sensor   "pulse_version" "channel" "{{value_json.channel}}" "Channel" "${L_DEVICE_JSON}" 
+	if [ "${L_FORCE_UPDATE}" == "yes" ] ; 
+	then
+		echo "${RESPONSE}" | jq --tab >&2
+		L_DEVICE_JSON='"device":{ "identifiers":[ "pulse_top" ], "name":"Pulse Top" } '
+		publish_mqtt_ha_config_gen	"sensor" "pulse_version" "version" "{{value_json.version}}" "Current Version" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"sensor" "pulse_version" "latestversion" "{{value_json.latestVersion}}" "Latest Version" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"sensor" "pulse_version" "deploymenttype" "{{value_json.deploymentType}}" "Deployment Type" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"sensor" "pulse_version" "channel" "{{value_json.channel}}" "Channel" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"binary_sensor"	"pulse_version" "updateavailable" "{{value_json.updateAvailable}}" "Update Available" "${L_DEVICE_JSON}" 
 
-                publish_mqtt_pulse_topic        "pulse_version" "${RESPONSE}"
-        else
-                echo "${RESPONSE}" | jq --tab >&2
-                publish_mqtt_pulse_topic "pulse_version" "${RESPONSE}"
-        fi
+
+		publish_mqtt_pulse_topic 	"pulse_version" "${RESPONSE}"
+	else
+		echo "${RESPONSE}" | jq --tab >&2
+		publish_mqtt_pulse_topic "pulse_version" "${RESPONSE}"
+	fi
+
 }
 
+
+publish_state_api() {
+	L_FORCE_UPDATE="$1"
+	RESPONSE_TMP="$( call_api ${VAR_API_STATE})"
+	#echo " CONTENT OF RESPONSE: ${RESPONSE}"
+	RESPONSE="$( echo "${RESPONSE_TMP}" | jq --tab -f jq_filter_state.txt)"
+
+}
 
 
 
@@ -86,6 +128,8 @@ publish_version_api() {
 ##################################################################
 
 
+
+
 ##################################################################
 # Loop through arguments
 for arg in "$@"; do
@@ -94,6 +138,8 @@ for arg in "$@"; do
       pulse_host=*)     VAR_PULSE_HOST="${arg#*=}" ;;
       pulse_port=*)     VAR_PULSE_PORT="${arg#*=}" ;;
       pulse_key=*)      VAR_PULSE_KEY="${arg#*=}" ;;
+      mqtt_host=*)      VAR_MQTT_HOST="${arg#*=}" ;;
+      mqtt_port=*)      VAR_MQTT_PORT="${arg#*=}" ;;
    esac
 done
 
@@ -131,23 +177,27 @@ VAR_API_STATE="/api/state"
 ## INFINITE LOOP
 LOOP_CPT=0
 L_CONTINUE=true
-while [ $L_CONTINUE} ] 
+while [ $ÃL_CONTINUE} ] 
 do
-        echo "===== MAIN_LOOP_BEGIN ${LOOP_CPT}" >&2
-        if [ "$((LOOP_CPT%60))" -eq  0 ] ;
-        then
-                # publish data and update HA automatic discovery
-                publish_version_api yes
-        else
-                if [ "$((LOOP_CPT%10))" -eq  0 ] ;
-                then
-                        #only push data 
-                        publish_version_api no
-                fi
-        fi
+	echo "===== MAIN_LOOP_BEGIN ${LOOP_CPT}" >&2
+	if [ "$((LOOP_CPT%60))" -eq  0 ] ;
+	then
+		# publish data and update HA automatic discovery
+		publish_version_api yes
+	else
+		if [ "$((LOOP_CPT%10))" -eq  0 ] ;
+		then
+			#only push data 
+			publish_version_api no
+		fi
+	fi
+		
+	publish_state_api yes
 
-        LOOP_CPT=$((LOOP_CPT+1))
-        LOOP_CPT=$((LOOP_CPT%300))
-        sleep 1
+	LOOP_CPT=$((LOOP_CPT+1))
+	LOOP_CPT=$((LOOP_CPT%300))
+	sleep 1
 done
 exit 0 
+
+
