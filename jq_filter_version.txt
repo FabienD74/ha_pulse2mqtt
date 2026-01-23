@@ -1,7 +1,8 @@
 {  
         version: .version ,
-        latestVersion: .latestVersion,
-        build: .build,
-        deploymentType: .deploymentType,
-        channel: .channel
+	latestVersion: .latestVersion,
+	build: .build,
+	deploymentType: .deploymentType,
+	channel: .channel,
+	updateAvailale: .updateAvailable 
 }
