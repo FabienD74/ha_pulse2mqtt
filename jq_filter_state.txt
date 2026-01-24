@@ -1,5 +1,5 @@
 {
-node:[.nodes[]  | {
+nodes:[.nodes[]  | {
         id: .id,
         node: .node,
         name : .name,
