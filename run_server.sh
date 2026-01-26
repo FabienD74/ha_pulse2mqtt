@@ -57,7 +57,10 @@ publish_mqtt_ha_config_sensor(){
 	L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
 	L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/pulse/${L_SUBTOPIC}_${L_FIELD}/config"
 
-	L_JSON="{\"state_topic\":\"${L_MQTT_TOPIC}\", \"value_template\":\"${L_ACCESS_TEMPLATE}\", \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_DEVICE_JSON}  } "
+	L_STATE_TOPIC="\"state_topic\":\"${L_MQTT_TOPIC}\""
+	L_VALUE_TEMPLATE="\"value_template\":\"${L_ACCESS_TEMPLATE}\""
+
+	L_JSON="{ ${L_STATE_TOPIC}, ${L_VALUE_TEMPLATE} , \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_DEVICE_JSON}  } "
         L_RESPONSE="$(mosquitto_pub  -h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
 	#echo " DEBUG: ${L_JSON}" >&2
 }
@@ -192,6 +195,22 @@ VAR_PULSE_BASE_URL="${VAR_PULSE_PROTOCOL}://${VAR_PULSE_HOST}:${VAR_PULSE_PORT}"
 ## debug input parameters
 echo "VAR_PULSE_BASE_URL=\"${VAR_PULSE_BASE_URL}\""
 #echo "VAR_PULSE_KEY=\"${VAR_PULSE_KEY}\""
+
+
+##################################################################
+## TEST RESQUIRMENTS  
+which curl 2>&1  >/dev/null
+if [ $? -ne 0 ]; then
+    echo "curl not found!" 
+    exit 1
+fi
+
+which mosquitto_pub 2>&1 >/dev/null
+if [ $? -ne 0 ]; then
+    echo "mosquitto_pub not found! ( part of package mosquitto-clients )" 
+    exit 1
+fi
+
 
 ##################################################################
 ## TEST PING  
