@@ -56,7 +56,7 @@ publish_mqtt_ha_config_sensor(){
 		L_EXTRA_JSON=",$7"
 	fi
 
-    	l_JSON=$(cat <<- TAG_EOL
+    	L_JSON=$(cat <<- TAG_EOL
 		{ 
 		${L_STATE_TOPIC},
 		${L_VALUE_TEMPLATE},
