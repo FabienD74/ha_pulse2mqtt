@@ -140,7 +140,7 @@ publish_state_api() {
 		echo "processing node ${L_NODE_ID}" 
 		NODE_JSON="$( echo "${JSON_NODES_SUBTREE}" | jq --tab ".[] | select( .id == ${L_NODE_ID})" )" 
 		L_NODE_NAME="$( echo "${NODE_JSON}" | jq .name | sed "s/\"//g" )" 
-		L_SENSOR_PREFIX="pulse_node_${L_NODE_NAME}Z"
+		L_SENSOR_PREFIX="pulse_node_${L_NODE_NAME}"
 
 		L_DEVICE_JSON=" \"device\":{ \"identifiers\":[ \"pulse_node_${L_NODE_NAME}\" ], \"name\":\"Pulse Node ${L_NODE_NAME}\" }"
 
