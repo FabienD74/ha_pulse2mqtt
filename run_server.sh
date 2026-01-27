@@ -7,12 +7,18 @@ VAR_PULSE_PROTOCOL="http"
 VAR_PULSE_HOST="ct-pulse.home"
 VAR_PULSE_PORT="7655"
 VAR_PULSE_KEY="f3b0243219206db7ad93a0cdb869cdc4f1cc3a3782feda7cb0563f63caa1ccc3"
+
 # mqtt
 VAR_MQTT_HOST="vm-ha-docker.home"
 VAR_MQTT_PORT="1883"
+# user/password can be left empty for anonymous login
+VAR_MQTT_USER=""  
+VAR_MQTT_PASSWORD=""
+
+#################################
+# SOME globals/static/const
 VAR_MQTT_PULSE_TOPIC="pulse2mqtt"
 VAR_MQTT_HA_TOPIC="homeassistant"
-
 VAR_PULSE_BASE_URL=""
 
 
@@ -27,59 +33,44 @@ call_api () {
         echo "${L_RESPONSE}"
 }
 
-publish_mqtt_ha_config_binary_sensor(){
-	L_HA_SUBTOPIC="binary_sensor"
-        L_SUBTOPIC="$1"
-	L_FIELD="$2"
-	L_ACCESS_TEMPLATE="$3"
-	L_NAME="$4"
-	L_DEVICE_JSON="$5"
-
-	L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
-	L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/pulse/${L_SUBTOPIC}_${L_FIELD}/config"
-	
-	L_EXTRA_JSON="\"payload_on\":true, \"payload_off\":false"
-
-	L_JSON="{\"state_topic\":\"${L_MQTT_TOPIC}\", \"value_template\":\"${L_ACCESS_TEMPLATE}\", \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_EXTRA_JSON}, ${L_DEVICE_JSON}  } "
-        L_RESPONSE="$(mosquitto_pub  -h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
-	#echo " DEBUG: ${L_JSON}" >&2
-}
-
 
 publish_mqtt_ha_config_sensor(){
-	L_HA_SUBTOPIC="sensor"
-        L_SUBTOPIC="$1"
-	L_FIELD="$2"
-	L_ACCESS_TEMPLATE="$3"
-	L_NAME="$4"
-	L_DEVICE_JSON="$5"
+	L_HA_SUBTOPIC="$1"
+        L_SUBTOPIC="$2"
+	L_FIELD="$3"
+	L_ACCESS_TEMPLATE="$4"
+	L_NAME="\"name\":\"$5\"" 
+	L_DEVICE_JSON="$6"
+	L_ICON="\"icon\": \"$7\""
 
 	L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
 	L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/pulse/${L_SUBTOPIC}_${L_FIELD}/config"
+	L_UNIQUE_ID="\"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\""
 
 	L_STATE_TOPIC="\"state_topic\":\"${L_MQTT_TOPIC}\""
 	L_VALUE_TEMPLATE="\"value_template\":\"${L_ACCESS_TEMPLATE}\""
+	if [ "$8" == "" ] ; 
+	then
+		L_EXTRA_JSON=""
+	else
+		L_EXTRA_JSON=",$7"
+	fi
 
-	L_JSON="{ ${L_STATE_TOPIC}, ${L_VALUE_TEMPLATE} , \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_DEVICE_JSON}  } "
-        L_RESPONSE="$(mosquitto_pub  -h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
+    	l_JSON=$(cat <<- TAG_EOL
+		{ 
+		${L_STATE_TOPIC},
+		${L_VALUE_TEMPLATE},
+		${L_NAME},
+		${L_UNIQUE_ID},
+		${L_DEVICE_JSON}, 
+		${L_ICON} 
+		${L_EXTRA_JSON}
+		} 
+		TAG_EOL )
+
+	L_MQTT_SERVER_INFO="-h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -u ${VAR_MQTT_USER} -P ${VAR_MQTT_PASSWORD}"
+        L_RESPONSE="$(mosquitto_pub  ${L_MQTT_SERVER_INFO} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
 	#echo " DEBUG: ${L_JSON}" >&2
-}
-
-publish_mqtt_ha_config_sensor_measure(){
-	L_HA_SUBTOPIC="sensor"
-        L_SUBTOPIC="$1"
-	L_FIELD="$2"
-	L_ACCESS_TEMPLATE="$3"
-	L_NAME="$4"
-	L_DEVICE_JSON="$5"
-
-	L_EXTRA_JSON="\"state_class\": \"measurement\" "
-
-	L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
-	L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/pulse/${L_SUBTOPIC}_${L_FIELD}/config"
-
-	L_JSON="{\"state_topic\":\"${L_MQTT_TOPIC}\", \"value_template\":\"${L_ACCESS_TEMPLATE}\", \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_EXTRA_JSON},  ${L_DEVICE_JSON}  } "
-        L_RESPONSE="$(mosquitto_pub  -h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
 }
 
 
@@ -88,14 +79,14 @@ publish_mqtt_ha_config_gen(){
 
    case "$1" in
       sensor) 
-		publish_mqtt_ha_config_sensor "$2" "$3" "$4" "$5" "$6"
+		publish_mqtt_ha_config_sensor "sensor" "$2" "$3" "$4" "$5" "$6" "$7"
 		;;
       sensor_measure) 
-		publish_mqtt_ha_config_sensor_measure "$2" "$3" "$4" "$5" "$6"
+		publish_mqtt_ha_config_sensor "sensor" "$2" "$3" "$4" "$5" "$6" "$7" "\"state_class\": \"measurement\""
 		;;
 
       binary_sensor) 
-		publish_mqtt_ha_config_binary_sensor "$2" "$3" "$4" "$5" "$6"
+		publish_mqtt_ha_config_sensor "binary_sensor" "$2" "$3" "$4" "$5" "$6" "\"payload_on\":true, \"payload_off\":false"
 		;;
    esac
 }
@@ -137,9 +128,7 @@ publish_version_api() {
 publish_state_api() {
 	L_FORCE_UPDATE="$1"
 	RESPONSE_TMP="$( call_api ${VAR_API_STATE})"
-	#echo " CONTENT OF RESPONSE: ${RESPONSE_TMP}"
 	RESPONSE="$( echo "${RESPONSE_TMP}" | jq --tab -f jq_filter_state.txt)"
-	#echo " CONTENT OF RESPONSE: ${RESPONSE}" >&2
 
 	# ==== NODES SUBTREE ====
 	JSON_NODES_SUBTREE="$( echo "${RESPONSE}" | jq --tab [.nodes[]] )"
@@ -158,7 +147,7 @@ publish_state_api() {
 
 		publish_mqtt_ha_config_gen	"sensor" ${L_SENSOR_PREFIX} "name" "{{value_json.name}}" "Name" "${L_DEVICE_JSON}" 
 		publish_mqtt_ha_config_gen	"sensor" ${L_SENSOR_PREFIX} "status" "{{value_json.status}}" "Status" "${L_DEVICE_JSON}" 
-		publish_mqtt_ha_config_gen	"sensor_measure" ${L_SENSOR_PREFIX} "cpu" "{{value_json.cpu}}" "Cpu" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"sensor_measure" ${L_SENSOR_PREFIX} "cpu" "{{value_json.cpu}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip"
 		publish_mqtt_pulse_topic 	${L_SENSOR_PREFIX} "${NODE_JSON}"
 	done
 
@@ -185,6 +174,8 @@ for arg in "$@"; do
       pulse_key=*)      VAR_PULSE_KEY="${arg#*=}" ;;
       mqtt_host=*)      VAR_MQTT_HOST="${arg#*=}" ;;
       mqtt_port=*)      VAR_MQTT_PORT="${arg#*=}" ;;
+      mqtt_user=*)      VAR_MQTT_USER="${arg#*=}" ;;
+      mqtt_password=*)  VAR_MQTT_PASSWORD="${arg#*=}" ;;
    esac
 done
 
@@ -241,7 +232,7 @@ L_CONTINUE=true
 while [ $ÃL_CONTINUE} ] 
 do
 	echo "===== MAIN_LOOP_BEGIN ${LOOP_CPT}" >&2
-	if [ "$((LOOP_CPT%60))" -eq  0 ] ;
+	if [ "$((LOOP_CPT%30))" -eq  0 ] ;
 	then
 		# publish data and update HA automatic discovery
 		echo "publish_version_api yes"
@@ -255,13 +246,13 @@ do
 		fi
 	fi
 		
-	if [ "$(((LOOP_CPT+5)%60))" -eq  0 ] ;
+	if [ "$(((LOOP_CPT)%30))" -eq  0 ] ;
 	then
 		echo "publish_state_api yes"
 		publish_state_api yes
 
 	else
-		if [ "$(((LOOP_CPT+5)%10))" -eq  0 ] ;
+		if [ "$(((LOOP_CPT+5)%30))" -eq  0 ] ;
 		then
 			#only push data 
 			echo "publish_state_api no"
