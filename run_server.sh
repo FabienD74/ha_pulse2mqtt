@@ -33,7 +33,6 @@ call_api () {
         echo "${L_RESPONSE}"
 }
 
-
 publish_mqtt_ha_config_sensor(){
 	L_HA_SUBTOPIC="$1"
         L_SUBTOPIC="$2"
@@ -41,36 +40,61 @@ publish_mqtt_ha_config_sensor(){
 	L_ACCESS_TEMPLATE="$4"
 	L_NAME="\"name\":\"$5\"" 
 	L_DEVICE_JSON="$6"
-	L_ICON="\"icon\": \"$7\""
+ 	if [ "$7" == "" ] ;
+	then
+		L_ICON="\"icon\": \"mdi:eye\""
+	else
+		L_ICON="\"icon\": \"$7\""
+	fi	
 
 	L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
 	L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/pulse/${L_SUBTOPIC}_${L_FIELD}/config"
-	L_UNIQUE_ID="\"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\""
+	L_UNIQUE_ID="\"unique_id\":\"pulse_${L_SUBTOPIC}_${L_FIELD}\""
+	L_DEFAULT_ENTITY_ID="\"default_entity_id\": \"${L_HA_SUBTOPIC}.pulse_${L_SUBTOPIC}_${L_FIELD}\""
 
 	L_STATE_TOPIC="\"state_topic\":\"${L_MQTT_TOPIC}\""
 	L_VALUE_TEMPLATE="\"value_template\":\"${L_ACCESS_TEMPLATE}\""
-	if [ "$8" == "" ] ; 
+
+	L_EXTRA_JSON="\"state_class\": \"measurement\" "
+ 	if [ "$8" == "" ] ;
 	then
 		L_EXTRA_JSON=""
 	else
-		L_EXTRA_JSON=",$7"
-	fi
-
+		L_EXTRA_JSON=",$8"
+	fi	
     	L_JSON=$(cat <<- TAG_EOL
 		{ 
 		${L_STATE_TOPIC},
 		${L_VALUE_TEMPLATE},
-		${L_NAME},
+		${L_DEFAULT_ENTITY_ID},
 		${L_UNIQUE_ID},
+		${L_NAME},
 		${L_DEVICE_JSON}, 
-		${L_ICON} 
+		${L_ICON}  
 		${L_EXTRA_JSON}
 		} 
 		TAG_EOL )
-
-	L_MQTT_SERVER_INFO="-h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -u ${VAR_MQTT_USER} -P ${VAR_MQTT_PASSWORD}"
+        L_MQTT_SERVER_INFO="-h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -u ${VAR_MQTT_USER} -P ${VAR_MQTT_PASSWORD}"
         L_RESPONSE="$(mosquitto_pub  ${L_MQTT_SERVER_INFO} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
-	#echo " DEBUG: ${L_JSON}" >&2
+        #echo " DEBUG: ${L_JSON}" >&2
+}
+
+publish_mqtt_ha_config_sensor_measure(){
+	L_HA_SUBTOPIC="sensor"
+        L_SUBTOPIC="$1"
+	L_FIELD="$2"
+	L_ACCESS_TEMPLATE="$3"
+	L_NAME="$4"
+	L_DEVICE_JSON="$5"
+	L_ICON="\"icon\": \"$6\""
+
+	L_EXTRA_JSON="\"state_class\": \"measurement\" "
+
+	L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
+	L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/pulse/${L_SUBTOPIC}_${L_FIELD}/config"
+
+	L_JSON="{\"state_topic\":\"${L_MQTT_TOPIC}\", \"value_template\":\"${L_ACCESS_TEMPLATE}\", \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_EXTRA_JSON},  ${L_DEVICE_JSON} , ${L_ICON} } "
+        L_RESPONSE="$(mosquitto_pub  -h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
 }
 
 
@@ -86,7 +110,7 @@ publish_mqtt_ha_config_gen(){
 		;;
 
       binary_sensor) 
-		publish_mqtt_ha_config_sensor "binary_sensor" "$2" "$3" "$4" "$5" "$6" "\"payload_on\":true, \"payload_off\":false"
+		publish_mqtt_ha_config_sensor "binary_sensor" "$2" "$3" "$4" "$5" "$6"
 		;;
    esac
 }
@@ -110,16 +134,16 @@ publish_version_api() {
 	if [ "${L_FORCE_UPDATE}" == "yes" ] ; 
 	then
 		L_DEVICE_JSON='"device":{ "identifiers":[ "pulse_top" ], "name":"Pulse Top" } '
-		publish_mqtt_ha_config_gen	"sensor" "pulse_version" "version" "{{value_json.version}}" "Current Version" "${L_DEVICE_JSON}" 
-		publish_mqtt_ha_config_gen	"sensor" "pulse_version" "latestversion" "{{value_json.latestVersion}}" "Latest Version" "${L_DEVICE_JSON}" 
-		publish_mqtt_ha_config_gen	"sensor" "pulse_version" "deploymenttype" "{{value_json.deploymentType}}" "Deployment Type" "${L_DEVICE_JSON}" 
-		publish_mqtt_ha_config_gen	"sensor" "pulse_version" "channel" "{{value_json.channel}}" "Channel" "${L_DEVICE_JSON}" 
-		publish_mqtt_ha_config_gen	"binary_sensor"	"pulse_version" "updateavailable" "{{value_json.updateAvailale}}" "Update Available" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"sensor" "version" "version" "{{value_json.version}}" "Current Version" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"sensor" "version" "latestversion" "{{value_json.latestVersion}}" "Latest Version" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"sensor" "version" "deploymenttype" "{{value_json.deploymentType}}" "Deployment Type" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"sensor" "version" "channel" "{{value_json.channel}}" "Channel" "${L_DEVICE_JSON}" 
+		publish_mqtt_ha_config_gen	"binary_sensor"	"version" "updateavailable" "{{value_json.updateAvailale}}" "Update Available" "${L_DEVICE_JSON}" 
 
 
-		publish_mqtt_pulse_topic 	"pulse_version" "${RESPONSE}"
+		publish_mqtt_pulse_topic 	"version" "${RESPONSE}"
 	else
-		publish_mqtt_pulse_topic "pulse_version" "${RESPONSE}"
+		publish_mqtt_pulse_topic "version" "${RESPONSE}"
 	fi
 
 }
@@ -140,15 +164,36 @@ publish_state_api() {
 		echo "processing node ${L_NODE_ID}" 
 		NODE_JSON="$( echo "${JSON_NODES_SUBTREE}" | jq --tab ".[] | select( .id == ${L_NODE_ID})" )" 
 		L_NODE_NAME="$( echo "${NODE_JSON}" | jq .name | sed "s/\"//g" )" 
-		L_SENSOR_PREFIX="pulse_node_${L_NODE_NAME}"
+		L_SENSOR_PREFIX="node_${L_NODE_NAME}"
 
 		L_DEVICE_JSON=" \"device\":{ \"identifiers\":[ \"pulse_node_${L_NODE_NAME}\" ], \"name\":\"Pulse Node ${L_NODE_NAME}\" }"
 
 
-		publish_mqtt_ha_config_gen	"sensor" ${L_SENSOR_PREFIX} "name" "{{value_json.name}}" "Name" "${L_DEVICE_JSON}" 
-		publish_mqtt_ha_config_gen	"sensor" ${L_SENSOR_PREFIX} "status" "{{value_json.status}}" "Status" "${L_DEVICE_JSON}" 
-		publish_mqtt_ha_config_gen	"sensor_measure" ${L_SENSOR_PREFIX} "cpu" "{{value_json.cpu}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip"
-		publish_mqtt_pulse_topic 	${L_SENSOR_PREFIX} "${NODE_JSON}"
+		publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "name" "{{value_json.name}}" "Name" "${L_DEVICE_JSON}" "mdi:rename"
+		publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "status" "{{value_json.status}}" "Status" "${L_DEVICE_JSON}" "mdi:list-status"
+		publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "cpu" "{{value_json.cpu}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip"
+		publish_mqtt_pulse_topic ${L_SENSOR_PREFIX} "${NODE_JSON}"
+	done
+	# ==== VM SUBTREE ====
+
+	JSON_NODES_SUBTREE="$( echo "${RESPONSE}" | jq --tab [.vm[]] )"
+
+	ALL_NODES_ID="$( echo "${JSON_NODES_SUBTREE}" | jq --tab ".[] | .id" )"
+	#echo "debug  ALL_NODES_ID = ${ALL_NODES_ID}" >&2
+
+	for L_NODE_ID in ${ALL_NODES_ID} ; do
+		echo "processing node ${L_NODE_ID}" 
+		NODE_JSON="$( echo "${JSON_NODES_SUBTREE}" | jq --tab ".[] | select( .id == ${L_NODE_ID})" )" 
+		L_NODE_NAME="$( echo "${NODE_JSON}" | jq .name | sed "s/\"//g" )" 
+		L_SENSOR_PREFIX="vm_${L_NODE_NAME}"
+
+		L_DEVICE_JSON=" \"device\":{ \"identifiers\":[ \"pulse_vm_${L_NODE_NAME}\" ], \"name\":\"Pulse VM ${L_NODE_NAME}\" }"
+
+
+		publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "name" "{{value_json.name}}" "Name" "${L_DEVICE_JSON}" "mdi:rename"
+		publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "status" "{{value_json.status}}" "Status" "${L_DEVICE_JSON}" "mdi:list-status"
+		publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "cpu" "{{value_json.cpu}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip"
+		publish_mqtt_pulse_topic ${L_SENSOR_PREFIX} "${NODE_JSON}"
 	done
 
 }
