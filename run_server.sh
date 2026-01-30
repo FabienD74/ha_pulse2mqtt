@@ -70,18 +70,15 @@ publish_mqtt_ha_config_sensor(){
 	else
 		L_EXTRA_JSON=",$8"
 	fi	
-    	L_JSON=$(cat <<- TAG_EOL
-		{ 
-		${L_STATE_TOPIC},
-		${L_VALUE_TEMPLATE},
-		${L_DEFAULT_ENTITY_ID},
-		${L_UNIQUE_ID},
-		${L_NAME},
-		${L_DEVICE_JSON}, 
-		${L_ICON}  
-		${L_EXTRA_JSON}
-		} 
-		TAG_EOL )
+
+    	L_JSON="{${L_STATE_TOPIC},${L_VALUE_TEMPLATE},${L_DEFAULT_ENTITY_ID},${L_UNIQUE_ID},${L_NAME},${L_DEVICE_JSON},${L_ICON} ${L_EXTRA_JSON}}"
+
+
+
+
+
+
+	
         L_MQTT_SERVER_INFO="-h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -u ${VAR_MQTT_USER} -P ${VAR_MQTT_PASSWORD}"
         L_RESPONSE="$(mosquitto_pub  ${L_MQTT_SERVER_INFO} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
 }
@@ -181,7 +178,10 @@ publish_state_nodes(){
 			publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "name" "{{value_json.name}}" "Name" "${L_DEVICE_JSON}" "mdi:rename" &
 			publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "status" "{{value_json.status}}" "Status" "${L_DEVICE_JSON}" "mdi:list-status" &
 			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "cpu" "{{value_json.cpu}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip" &
-			##### fekjkjfbfskj publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "mem" "{{value_json.mem}}" "MemUsed" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "memused" "{{value_json.mem}}" "Mem Used" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "memtot" "{{value_json.maxmem}}" "Mem Total" "${L_DEVICE_JSON}" "mdi:chip" &
+
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "mempercent" "{{ ( value_json.mem|float(0) / (value_json.maxmem|float(0)+1))|float(0)|round(2)}}" "Mem Usage" "${L_DEVICE_JSON}" "mdi:chip" &
 		fi
 		publish_mqtt_pulse_topic ${L_SENSOR_PREFIX} "${NODE_JSON}" &
 
@@ -340,33 +340,26 @@ LOOP_CPT=0
 L_CONTINUE=true
 
 logger -t "${VAR_LOGGER_TAG}" "Started"
-while [ $ÃL_CONTINUE} ] 
+while [ ${L_CONTINUE} ] 
 do
-	echo "===== MAIN_LOOP_BEGIN ${LOOP_CPT}" >&2
+	#echo "===== MAIN_LOOP_BEGIN ${LOOP_CPT}" >&2
 	if [ "$((LOOP_CPT%60))" -eq  0 ] ;
 	then
-		# publish data and update HA automatic discovery
-		echo "publish_version_api yes"
 		publish_version_api "y"
 	else
 		if [ "$((LOOP_CPT%10))" -eq  0 ] ;
 		then
-			#only push data 
-			echo "publish_version_api no"
 			publish_version_api "n"
 		fi
 	fi
 		
 	if [ "$(((LOOP_CPT)%60))" -eq  0 ] ;
 	then
-		echo "publish_state_api yes"
 		publish_state_api "y"
 
 	else
 		if [ "$(((LOOP_CPT+5)%10))" -eq  0 ] ;
 		then
-			#only push data 
-			echo "publish_state_api no"
 			publish_state_api "n"
 		fi
 
