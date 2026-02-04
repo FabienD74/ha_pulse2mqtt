@@ -63,7 +63,6 @@ publish_mqtt_ha_config_sensor(){
 	L_STATE_TOPIC="\"state_topic\":\"${L_MQTT_TOPIC}\""
 	L_VALUE_TEMPLATE="\"value_template\":\"${L_ACCESS_TEMPLATE}\""
 
-	L_EXTRA_JSON="\"state_class\": \"measurement\" "
  	if [ "$8" == "" ] ;
 	then
 		L_EXTRA_JSON=""
@@ -73,44 +72,23 @@ publish_mqtt_ha_config_sensor(){
 
     	L_JSON="{${L_STATE_TOPIC},${L_VALUE_TEMPLATE},${L_DEFAULT_ENTITY_ID},${L_UNIQUE_ID},${L_NAME},${L_DEVICE_JSON},${L_ICON} ${L_EXTRA_JSON}}"
 
-
-
-
-
-
 	
         L_MQTT_SERVER_INFO="-h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -u ${VAR_MQTT_USER} -P ${VAR_MQTT_PASSWORD}"
         L_RESPONSE="$(mosquitto_pub  ${L_MQTT_SERVER_INFO} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
 }
-
-publish_mqtt_ha_config_sensor_measure(){
-	L_HA_SUBTOPIC="sensor"
-        L_SUBTOPIC="$1"
-	L_FIELD="$2"
-	L_ACCESS_TEMPLATE="$3"
-	L_NAME="$4"
-	L_DEVICE_JSON="$5"
-	L_ICON="\"icon\": \"$6\""
-
-	L_EXTRA_JSON="\"state_class\": \"measurement\" "
-
-	L_MQTT_TOPIC="${VAR_MQTT_PULSE_TOPIC}/${L_SUBTOPIC}"
-	L_FULL_TOPIC="${VAR_MQTT_HA_TOPIC}/${L_HA_SUBTOPIC}/pulse/${L_SUBTOPIC}_${L_FIELD}/config"
-
-	L_JSON="{\"state_topic\":\"${L_MQTT_TOPIC}\", \"value_template\":\"${L_ACCESS_TEMPLATE}\", \"name\":\"${L_NAME}\", \"unique_id\":\"${L_SUBTOPIC}_${L_FIELD}\", ${L_EXTRA_JSON},  ${L_DEVICE_JSON} , ${L_ICON} } "
-        L_RESPONSE="$(mosquitto_pub  -h ${VAR_MQTT_HOST} -p ${VAR_MQTT_PORT} -t "${L_FULL_TOPIC}" -m "${L_JSON}" )"
-}
-
 
 
 publish_mqtt_ha_config_gen(){
 
    case "$1" in
       sensor) 
-		publish_mqtt_ha_config_sensor "sensor" "$2" "$3" "$4" "$5" "$6" "$7"
+		publish_mqtt_ha_config_sensor "sensor" "$2" "$3" "$4" "$5" "$6" "$7" "$8"
 		;;
       sensor_measure) 
 		publish_mqtt_ha_config_sensor "sensor" "$2" "$3" "$4" "$5" "$6" "$7" "\"state_class\": \"measurement\""
+		;;
+      sensor_measure_percentage)
+		publish_mqtt_ha_config_sensor "sensor" "$2" "$3" "$4" "$5" "$6" "$7" "\"state_class\": \"measurement\",\"unit_of_measurement\": \"%\""
 		;;
 
       binary_sensor) 
@@ -177,11 +155,10 @@ publish_state_nodes(){
 
 			publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "name" "{{value_json.name}}" "Name" "${L_DEVICE_JSON}" "mdi:rename" &
 			publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "status" "{{value_json.status}}" "Status" "${L_DEVICE_JSON}" "mdi:list-status" &
-			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "cpu" "{{value_json.cpu}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure_percentage" ${L_SENSOR_PREFIX} "cpu" "{{(100.0 * value_json.cpu|float(0))|round(2)}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip" &
 			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "memused" "{{value_json.mem}}" "Mem Used" "${L_DEVICE_JSON}" "mdi:chip" &
 			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "memtot" "{{value_json.maxmem}}" "Mem Total" "${L_DEVICE_JSON}" "mdi:chip" &
-
-			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "mempercent" "{{ ( value_json.mem|float(0) / (value_json.maxmem|float(0)+1))|float(0)|round(2)}}" "Mem Usage" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "mempercent" "{{ ( 100.0 * value_json.mem|float(0) / (value_json.maxmem|float(0)+1))|float(0)|round(2)}}" "Mem Usage" "${L_DEVICE_JSON}" "mdi:chip" &
 		fi
 		publish_mqtt_pulse_topic ${L_SENSOR_PREFIX} "${NODE_JSON}" &
 
@@ -211,7 +188,10 @@ publish_state_vm(){
 
 			publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "name" "{{value_json.name}}" "Name" "${L_DEVICE_JSON}" "mdi:rename" &
 			publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "status" "{{value_json.status}}" "Status" "${L_DEVICE_JSON}" "mdi:list-status" &
-			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "cpu" "{{value_json.cpu}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure_percentage" ${L_SENSOR_PREFIX} "cpu" "{{(100.0 * value_json.cpu|float(0))|round(2)}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "memused" "{{value_json.mem}}" "Mem Used" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "memtot" "{{value_json.maxmem}}" "Mem Total" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "mempercent" "{{ ( 100.0 * value_json.mem|float(0) / (value_json.maxmem|float(0)+1))|float(0)|round(2)}}" "Mem Usage" "${L_DEVICE_JSON}" "mdi:chip" &
 		fi
 		publish_mqtt_pulse_topic ${L_SENSOR_PREFIX} "${NODE_JSON}" &
 	done
@@ -239,7 +219,10 @@ publish_state_lxc(){
 
 			publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "name" "{{value_json.name}}" "Name" "${L_DEVICE_JSON}" "mdi:rename" &
 			publish_mqtt_ha_config_gen "sensor" ${L_SENSOR_PREFIX} "status" "{{value_json.status}}" "Status" "${L_DEVICE_JSON}" "mdi:list-status" &
-			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "cpu" "{{value_json.cpu}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure_percentage" ${L_SENSOR_PREFIX} "cpu" "{{(100.0 * value_json.cpu|float(0))|round(2)}}" "Cpu" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "memused" "{{value_json.mem}}" "Mem Used" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "memtot" "{{value_json.maxmem}}" "Mem Total" "${L_DEVICE_JSON}" "mdi:chip" &
+			publish_mqtt_ha_config_gen "sensor_measure" ${L_SENSOR_PREFIX} "mempercent" "{{ ( 100.0 * value_json.mem|float(0) / (value_json.maxmem|float(0)+1))|float(0)|round(2)}}" "Mem Usage" "${L_DEVICE_JSON}" "mdi:chip" &
 
 		fi
 		publish_mqtt_pulse_topic ${L_SENSOR_PREFIX} "${NODE_JSON}" &
